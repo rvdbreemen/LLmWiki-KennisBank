@@ -122,10 +122,16 @@ Your memory files live under `~/.claude/projects/`. The path segment is a slug o
    ```bash
    ollama pull nomic-embed-text
    ```
+5. To enable the `/autoresearch` trigger in Claude Code, add this to your global `~/.claude/CLAUDE.md`:
+   ```
+   # autoresearch
+   - **autoresearch** (`~/.claude/skills/autoresearch/SKILL.md`) - multi-round research with lazy hierarchy check. Output to `~/Claude/research/`. Trigger: `/autoresearch`
+   When the user types `/autoresearch`, invoke the Skill tool with `skill: "autoresearch"` before doing anything else.
+   ```
 
 ## Optional: graphify integration
 
-The `auto-crosslink.py` script reads from `~/KennisBank/graphify-out/graph.json`. This is produced by the [graphify skill](https://github.com/Jvdbreemen) when run on the vault. Without it, the crosslink step is silently skipped.
+The `auto-crosslink.py` script reads from `~/KennisBank/graphify-out/graph.json`. This is produced by the graphify skill when run on the vault. Without it, the crosslink step is silently skipped.
 
 ## Credits
 

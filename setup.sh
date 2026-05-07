@@ -34,16 +34,16 @@ if [ ! -f "$VAULT/CLAUDE.md" ]; then
 fi
 
 # Commands and skill (with confirmation)
-read -p "Commands kopiëren naar $CLAUDE_COMMANDS/? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
+printf "Commands kopiëren naar %s/? (y/n) " "$CLAUDE_COMMANDS"
+read REPLY
+if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
   mkdir -p "$CLAUDE_COMMANDS"
   cp commands/*.md "$CLAUDE_COMMANDS/"
 fi
 
-read -p "autoresearch skill kopiëren naar $CLAUDE_SKILLS/autoresearch/? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
+printf "autoresearch skill kopiëren naar %s/autoresearch/? (y/n) " "$CLAUDE_SKILLS"
+read REPLY
+if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
   mkdir -p "$CLAUDE_SKILLS/autoresearch"
   cp skills/autoresearch/SKILL.md "$CLAUDE_SKILLS/autoresearch/"
 fi
