@@ -30,6 +30,7 @@ Every Claude session produces a session log. The `/wiki` command compiles logs i
 | `scripts/import-cc-history.py` | Import Claude Code session history |
 | `scripts/import-claudeai-export.py` | Import claude.ai export bundle |
 | `scripts/import-folder.py` | Recursive import from any markdown/txt folder |
+| `scripts/build-karpathy-index.py` | Build Karpathy-format `index.md` + `log.md` (for `/understand-knowledge`) |
 | `scripts/doctor.sh` | Health-check script: verifies vault, scripts, commands, skill |
 | `templates/tpl-sessie-log.md` | Session log template |
 | `templates/tpl-wiki-artikel.md` | Wiki article template |
@@ -58,6 +59,7 @@ Both paths are configurable — see [Customization](#customization).
 | [CONFIGURATION.md](CONFIGURATION.md) | Every configurable knob: paths, thresholds, models |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom / cause / fix for common problems |
 | [OBSIDIAN.md](OBSIDIAN.md) | Open the vault in Obsidian, recommended free plugins |
+| [CHANGELOG.md](CHANGELOG.md) | Release history, Keep a Changelog format |
 | [vault-structure/README.md](vault-structure/README.md) | Directory-by-directory reference |
 
 ## Installation
@@ -175,6 +177,26 @@ Your memory files live under `~/.claude/projects/`. The path segment is a slug o
 ## Optional: graphify integration
 
 The `auto-crosslink.py` script reads from `~/KennisBank/graphify-out/graph.json`. This is produced by the graphify skill when run on the vault. Without it, the crosslink step is silently skipped.
+
+## Optional: knowledge graph dashboard
+
+[Understand-Anything](https://github.com/Lum1104/Understand-Anything) is a separate Claude Code plugin (MIT) that turns a Karpathy-pattern wiki into an interactive knowledge graph dashboard with categorised layers, guided tours, and fuzzy search. It complements graphify rather than replacing it: graphify clusters semantically with confidence scores, Understand-Anything builds nodes-and-edges from your wikilinks plus LLM analysis.
+
+To use it on your vault:
+
+```bash
+# 1. Install the plugin
+claude plugin marketplace add Lum1104/Understand-Anything
+claude plugin install understand-anything
+
+# 2. Build the Karpathy-format index that the parser requires
+python3 scripts/build-karpathy-index.py
+
+# 3. In a Claude Code session inside ~/KennisBank/02-wiki, run
+/understand-knowledge
+```
+
+The detector requires `index.md` (with `## Section` headings + `[[wikilink]]` rows) and `log.md` (with `## [YYYY-MM-DD] OPERATION | Title` entries) inside the wiki directory. `/wiki` does not write those, so `scripts/build-karpathy-index.py` generates them by scanning `02-wiki/` frontmatter and `01-raw/sessies/` filenames. Run it whenever you want to refresh the dashboard. See `scripts/build-karpathy-index.py --help` for flags (`--dry-run`, `--force`, custom paths).
 
 ## Credits
 

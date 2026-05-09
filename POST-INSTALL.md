@@ -201,7 +201,39 @@ If you have a graphify skill installed in `$HOME/.claude/skills/graphify/` (one 
 
 ---
 
-## Step 8: Optional: autoresearch
+## Step 8: Optional: knowledge graph dashboard
+
+[Understand-Anything](https://github.com/Lum1104/Understand-Anything) generates an interactive HTML dashboard from a Karpathy-pattern wiki. Install once, build the index, run the skill:
+
+```bash
+# Install the plugin (user scope)
+claude plugin marketplace add Lum1104/Understand-Anything
+claude plugin install understand-anything
+
+# Build the index.md + log.md that parse-knowledge-base.py expects
+python3 scripts/build-karpathy-index.py
+```
+
+The build script scans `$HOME/KennisBank/02-wiki/` frontmatter and `$HOME/KennisBank/01-raw/sessies/` filenames, then writes:
+
+- `02-wiki/index.md` — wiki articles grouped into 5–12 categories via `## Section` + `[[wikilink]]` lines
+- `02-wiki/log.md` — chronological session log in `## [YYYY-MM-DD] SESSION | Title` format
+
+Re-run after major `/wiki` rounds. Without `--force` the script refuses to overwrite an existing index/log; pass `--force` to rebuild (a `.bak` is kept). Use `--dry-run` to preview.
+
+Then, in a Claude Code session pointed at `$HOME/KennisBank/02-wiki/`, run:
+
+```
+/understand-knowledge
+```
+
+After analysis (about 5 minutes for 100+ articles, dispatches up to 3 article-analyzer subagents concurrently), the skill auto-launches `/understand-dashboard`. You will see a graph URL with a `?token=` parameter — open it to browse nodes (articles, topics, entities, claims) and edges (related, categorized_under, builds_on, cites, contradicts, ...).
+
+This is read-only: no vault content is modified beyond the index/log helper files.
+
+---
+
+## Step 9: Optional: autoresearch
 
 If you completed Step 2, you can do multi-round research on any topic and have it land where the rest of your knowledge lives.
 
@@ -213,7 +245,7 @@ The skill runs up to three rounds of web search and fetch (max 15 sources), writ
 
 ---
 
-## Step 9: Optional: backfill old sessions
+## Step 10: Optional: backfill old sessions
 
 If you have Claude history from before you installed this layer, `/import` can pull it into `$HOME/KennisBank/01-raw/sessies/` so `/wiki` can compile it. Four sources are supported:
 
