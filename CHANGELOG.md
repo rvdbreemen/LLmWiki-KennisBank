@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/semantic-tiling.py`: use Ollama HTTP API (`/api/embeddings`) instead of the removed `ollama embed` CLI subcommand. The previous implementation would always return `None` on current Ollama releases, causing similarity checks to silently produce zero matches.
+
 ## [0.3.0] — 2026-05-09
 
 ### Added
