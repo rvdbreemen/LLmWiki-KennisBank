@@ -200,7 +200,7 @@ The detector requires `index.md` (with `## Section` headings + `[[wikilink]]` ro
 
 ## Credits
 
-- Pattern: [Andrej Karpathy's LLM Wiki concept](https://x.com/karpathy)
+- Pattern: [Andrej Karpathy's LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 - Vault/CMS inspiration: [claude-obsidian by AgriciDaniel](https://github.com/AgriciDaniel/claude-obsidian)
 
 ## License
