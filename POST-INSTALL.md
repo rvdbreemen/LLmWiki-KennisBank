@@ -90,7 +90,7 @@ ls $HOME/.claude/commands/ | grep -E '^(sessielog|wiki|intake|stale|sessiestart|
 ls $HOME/.claude/skills/autoresearch/SKILL.md
 ```
 
-If all three `ls` listings show files (the third one should list six command files), the install is wired up.
+If all four `ls` listings show files (the third one should list six command files), the install is wired up.
 
 ---
 
