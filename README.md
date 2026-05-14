@@ -112,7 +112,7 @@ cp skills/autoresearch/SKILL.md ~/.claude/skills/autoresearch/
 | `/wiki` | optional topic | Compiles raw logs (last 7 days) into wiki articles |
 | `/intake` | none | Processes files in `~/KennisBank/00-inbox/` |
 | `/stale` | none | Detects articles older than 60 days with newer session data |
-| `/import` | source [path] | Bulk-import old sessions: cc, claudeai, folder, cowork, all |
+| `/import` | `cc` \| `claudeai <path>` \| `folder <path>` \| `cowork` | Bulk-import old sessions: `cc` (Claude Code history), `claudeai <path>` (claude.ai export bundle), `folder <path>` (any markdown/text folder, recursive), `cowork` (auto-detected Mac desktop Claude data) |
 | `/autoresearch` | topic | Multi-round web research, saves to `~/Claude/research/` |
 
 ## Vault structure
