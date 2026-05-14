@@ -90,7 +90,7 @@ ls $HOME/.claude/commands/ | grep -E '^(sessielog|wiki|intake|stale|sessiestart|
 ls $HOME/.claude/skills/autoresearch/SKILL.md
 ```
 
-If all four `ls` listings show files (the third one should list six command files), the install is wired up.
+If all three `ls` listings show files (the third one should list six command files), the install is wired up.
 
 ---
 
@@ -216,7 +216,7 @@ python3 scripts/build-karpathy-index.py
 
 The build script scans `$HOME/KennisBank/02-wiki/` frontmatter and `$HOME/KennisBank/01-raw/sessies/` filenames, then writes:
 
-- `02-wiki/index.md` — wiki articles grouped into 5–12 categories via `## Section` + `[[wikilink]]` lines
+- `02-wiki/index.md` - wiki articles grouped into 5–12 categories via `## Section` + `[[wikilink]]` lines
 - `02-wiki/log.md` - chronological session log in `## [YYYY-MM-DD] OPERATION | Title` format
 
 Re-run after major `/wiki` rounds. Without `--force` the script refuses to overwrite an existing index/log; pass `--force` to rebuild (a `.bak` is kept). Use `--dry-run` to preview.
@@ -227,7 +227,7 @@ Then, in a Claude Code session pointed at `$HOME/KennisBank/02-wiki/`, run:
 /understand-knowledge
 ```
 
-After analysis (about 5 minutes for 100+ articles, dispatches up to 3 article-analyzer subagents concurrently), the skill auto-launches `/understand-dashboard`. You will see a graph URL with a `?token=` parameter — open it to browse nodes (articles, topics, entities, claims) and edges (related, categorized_under, builds_on, cites, contradicts, ...).
+After analysis (about 5 minutes for 100+ articles, dispatches up to 3 article-analyzer subagents concurrently), the skill auto-launches `/understand-dashboard`. You will see a graph URL with a `?token=` parameter - open it to browse nodes (articles, topics, entities, claims) and edges (related, categorized_under, builds_on, cites, contradicts, ...).
 
 This is read-only: no vault content is modified beyond the index/log helper files.
 
