@@ -13,7 +13,7 @@ The four root paths are declared at the top of `setup.sh`. Scripts and commands 
 ### VAULT
 
 - **Default**: `$HOME/KennisBank`
-- **Where set**: `setup.sh` line 8
+- **Where set**: `setup.sh`, the `VAULT` variable
 - **Read by**:
   - `scripts/auto-crosslink.py` (line 19, `VAULT_ROOT = Path.home() / "KennisBank"`)
   - `scripts/intake-scan.py` (line 12, `INBOX = Path.home() / "KennisBank" / "00-inbox"`)
@@ -26,23 +26,23 @@ The four root paths are declared at the top of `setup.sh`. Scripts and commands 
   - `skills/autoresearch/SKILL.md` (lazy hierarchy reads `$HOME/KennisBank/02-wiki/`)
   - `CLAUDE.md.template` (lazy hierarchy and graphify sections)
 - **Effect**: root of the knowledge vault. Everything below this path.
-- **To change**: edit `setup.sh` line 8 AND every reference listed above. There is no central env var; each file hardcodes the path.
+- **To change**: edit the `VAULT` variable in `setup.sh` AND every reference listed above. There is no central env var; each file hardcodes the path.
 
 ### RESEARCH
 
 - **Default**: `$HOME/Claude/research`
-- **Where set**: `setup.sh` line 9
+- **Where set**: `setup.sh`, the `RESEARCH` variable
 - **Read by**:
   - `skills/autoresearch/SKILL.md` (output directory, `mkdir -p ~/Claude/research`)
   - `commands/sessielog.md` (Step 2 scans for new research files)
   - `CLAUDE.md.template` (lazy hierarchy Layer 3)
 - **Effect**: where `/autoresearch` writes output documents.
-- **To change**: edit `setup.sh` line 9, `skills/autoresearch/SKILL.md` (Output section, two references), `commands/sessielog.md` (Step 2), and `CLAUDE.md.template`.
+- **To change**: edit the `RESEARCH` variable in `setup.sh`, `skills/autoresearch/SKILL.md` (Output section, two references), `commands/sessielog.md` (Step 2), and `CLAUDE.md.template`.
 
 ### CLAUDE_COMMANDS
 
 - **Default**: `$HOME/.claude/commands`
-- **Where set**: `setup.sh` line 10
+- **Where set**: `setup.sh`, the `CLAUDE_COMMANDS` variable
 - **Read by**: `setup.sh` only (copy destination). Claude Code itself reads from `$HOME/.claude/commands/` to expose slash commands. This path is not user-configurable in Claude Code.
 - **Effect**: where slash command definitions are installed.
 - **To change**: only meaningful if Claude Code's command directory ever moves. Not a real knob.
@@ -50,7 +50,7 @@ The four root paths are declared at the top of `setup.sh`. Scripts and commands 
 ### CLAUDE_SKILLS
 
 - **Default**: `$HOME/.claude/skills`
-- **Where set**: `setup.sh` line 11
+- **Where set**: `setup.sh`, the `CLAUDE_SKILLS` variable
 - **Read by**: `setup.sh` only (copy destination). Claude Code reads from `$HOME/.claude/skills/` to expose skills.
 - **Effect**: where the autoresearch skill is installed.
 - **To change**: same caveat as `CLAUDE_COMMANDS`. Not a real knob.

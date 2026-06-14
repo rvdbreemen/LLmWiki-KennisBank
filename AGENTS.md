@@ -133,7 +133,7 @@ Run the doctor script:
 bash scripts/doctor.sh
 ```
 
-Expected output: every check line ends in `OK`. Any `FAIL` is a blocker. Any `WARN` is non-fatal but should be reported in the hand-off.
+Expected output: every check line ends in `[PASS]`. Any `[FAIL]` is a blocker. Any `WARN` is non-fatal but should be reported in the hand-off.
 
 If `scripts/doctor.sh` is missing in the version you cloned, run these manual checks:
 
@@ -206,7 +206,7 @@ Things agents typically get wrong here:
 After install completes, tell the user:
 
 1. The vault is at `$HOME/KennisBank/`. Edit `CLAUDE.md` there to fill in `[YOUR NAME]` and `[YOUR PROJECTS]`.
-2. Four new slash commands are available: `/sessielog`, `/wiki`, `/intake`, `/stale`.
+2. Six new slash commands are available: `/sessielog`, `/wiki`, `/intake`, `/stale`, `/sessiestart`, `/import`.
 3. The `/autoresearch` skill is available; trigger it with `/autoresearch [topic]`.
 4. Research output lands in `$HOME/Claude/research/`.
 5. If Ollama is not installed, semantic tiling is skipped. To enable: `ollama pull nomic-embed-text`.
@@ -225,7 +225,7 @@ If the user wants non-default paths or thresholds, edit these locations.
 | Vault path (runtime) | `commands/*.md`, `skills/autoresearch/SKILL.md` | Hardcoded `~/KennisBank/...` references |
 | Research output | `setup.sh` | `RESEARCH="$HOME/Claude/research"` |
 | Research output (runtime) | `skills/autoresearch/SKILL.md` | Output paths in "Output aanmaken" and report sections |
-| Stale threshold | `scripts/stale-check.py` | `THRESHOLD_DAYS` constant, or pass `--days N` |
+| Stale threshold | `scripts/stale-check.py` | pass `--days N` (default 60) |
 | Memory file lookup | `CLAUDE.md.template`, `skills/autoresearch/SKILL.md` | The `ls ~/.claude/projects/*/memory/MEMORY.md` glob |
 | Vault `CLAUDE.md` content | `CLAUDE.md.template` | Template copied to vault on install |
 

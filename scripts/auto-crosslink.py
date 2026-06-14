@@ -5,10 +5,13 @@ op basis van de kennisgraaf (graphify-out/graph.json).
 
 Gebruik:
     python3 auto-crosslink.py wiki-artikel-1.md wiki-artikel-2.md
+    python3 auto-crosslink.py --dry-run wiki-artikel-1.md
 
 Paden zijn relatief aan de vault of absoluut.
+Met --dry-run wordt alleen getoond wat er zou veranderen; er wordt niets geschreven.
 """
 
+import argparse
 import json
 import re
 import sys
@@ -87,7 +90,7 @@ def find_section_insert(lines: list[str]) -> tuple[int, int]:
     return -1, create_at
 
 
-def process_file(filepath: Path, node_map: dict, links: list) -> None:
+def process_file(filepath: Path, node_map: dict, links: list, dry_run: bool = False) -> None:
     rel_path = normalize_path(str(filepath))
 
     # Nodes die bij dit bestand horen
@@ -189,6 +192,12 @@ def process_file(filepath: Path, node_map: dict, links: list) -> None:
             prefix = []  # geen extra lege regel binnen sectie
         lines[insert_idx:insert_idx] = prefix + new_lines_to_add
 
+    if dry_run:
+        print(f"{filepath.name}: zou {len(new_links)} backlink(s) toevoegen (dry-run, niets geschreven)")
+        for line in new_lines_to_add:
+            print(f"  + {line.rstrip()}")
+        return
+
     filepath.write_text("".join(lines), encoding="utf-8")
     print(f"{filepath.name}: {len(new_links)} backlink(s) toegevoegd")
 
@@ -211,9 +220,16 @@ def resolve_path(arg: str) -> Path:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print("Gebruik: python3 auto-crosslink.py bestand1.md [bestand2.md ...]")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Voeg automatisch backlinks toe aan wiki-artikelen op basis van graph.json."
+    )
+    parser.add_argument("files", nargs="+", metavar="bestand", help="wiki-artikel(en), relatief aan de vault of absoluut")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="toon welke backlinks zouden worden toegevoegd zonder iets te schrijven",
+    )
+    args = parser.parse_args()
 
     if not GRAPH_PATH.exists():
         print(f"graph.json niet gevonden ({GRAPH_PATH}) — crosslink overgeslagen")
@@ -221,12 +237,12 @@ def main() -> None:
 
     node_map, links = load_graph(GRAPH_PATH)
 
-    for arg in sys.argv[1:]:
+    for arg in args.files:
         fp = resolve_path(arg)
         if not fp.exists():
             print(f"{arg}: bestand niet gevonden ({fp})")
             continue
-        process_file(fp, node_map, links)
+        process_file(fp, node_map, links, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

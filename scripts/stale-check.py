@@ -27,9 +27,9 @@ def parse_frontmatter(text: str) -> dict:
 
 
 def parse_date(value: str) -> date | None:
-    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d"):
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
         try:
-            return datetime.strptime(value[:10], fmt[:len(fmt)]).date()
+            return datetime.strptime(value[:10], fmt).date()
         except ValueError:
             continue
     return None
