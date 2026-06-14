@@ -14,9 +14,11 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _frontmatter import parse_frontmatter as _parse_frontmatter  # noqa: E402
+from _vaultpath import vault_root  # noqa: E402
 
-WIKI_DIR = Path.home() / "KennisBank" / "02-wiki"
-SESSIES_DIR = Path.home() / "KennisBank" / "01-raw" / "sessies"
+VAULT_ROOT = vault_root()
+WIKI_DIR = VAULT_ROOT / "02-wiki"
+SESSIES_DIR = VAULT_ROOT / "01-raw" / "sessies"
 SESSIE_DATE_RE = re.compile(r"raw-sessie-(\d{4}-\d{2}-\d{2})")
 
 

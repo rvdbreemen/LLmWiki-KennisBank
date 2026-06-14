@@ -6,7 +6,7 @@
 
 set -u
 
-VAULT="$HOME/KennisBank"
+VAULT="${KENNISBANK_VAULT:-$HOME/KennisBank}"
 RESEARCH="$HOME/Claude/research"
 CLAUDE_DIR="$HOME/.claude"
 COMMANDS_DIR="$CLAUDE_DIR/commands"

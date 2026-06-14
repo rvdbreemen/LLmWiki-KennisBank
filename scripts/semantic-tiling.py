@@ -19,9 +19,11 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _frontmatter import split_frontmatter  # noqa: E402
+from _vaultpath import vault_root  # noqa: E402
 
-WIKI_DIR = Path.home() / "KennisBank" / "02-wiki"
-CACHE_FILE = Path.home() / "KennisBank" / ".claude" / "embeddings-cache.json"
+VAULT_ROOT = vault_root()
+WIKI_DIR = VAULT_ROOT / "02-wiki"
+CACHE_FILE = VAULT_ROOT / ".claude" / "embeddings-cache.json"
 OLLAMA_MODEL = "nomic-embed-text"
 
 THRESHOLD_ERROR = 0.90

@@ -257,40 +257,52 @@ The four root paths are declared at the top of `setup.sh`. Scripts and commands 
 
 ## 9. Customizing for non-default vault paths
 
-If you change `VAULT` from `$HOME/KennisBank` to something else, edit every file below. There is no single source of truth.
+### The `KENNISBANK_VAULT` environment variable (scripts)
 
-### Files that hardcode the vault root
+The Python scripts and `doctor.sh` resolve the vault root the same way:
+
+1. `$KENNISBANK_VAULT`, if set and non-empty (`~` and `$VARS` are expanded);
+2. otherwise the default `$HOME/KennisBank`.
+
+So pointing the whole script layer at another vault is one variable, not a
+source edit:
+
+```bash
+export KENNISBANK_VAULT=/path/to/your/KennisBank
+bash scripts/doctor.sh
+python3 scripts/stale-check.py
+```
+
+This is honored by `scripts/stale-check.py`, `scripts/semantic-tiling.py`,
+`scripts/auto-crosslink.py`, `scripts/intake-scan.py` and `scripts/doctor.sh`
+(shared helper: `scripts/_vaultpath.py`). The importers keep their own
+`--vault` flag. `build-karpathy-index.py` keeps its `--vault-root` flag.
+
+`setup.sh` still has a `VAULT="$HOME/KennisBank"` variable that controls where
+the install scaffolds the vault; set `KENNISBANK_VAULT` in your shell so the
+scripts target the same place after install.
+
+### Runtime paths still baked into the prompt files
+
+The slash commands and the autoresearch skill are prompt files executed by the
+model, not by Python; they still contain literal `~/KennisBank/...` and
+`~/Claude/research/...` references. If you use a non-default path, either set
+`KENNISBANK_VAULT` and symlink (below), or patch these:
 
 | File | What to edit |
 |------|-----|
-| `setup.sh` | line 8: `VAULT="..."` |
-| `scripts/auto-crosslink.py` | line 19: `VAULT_ROOT = Path.home() / "KennisBank"` |
-| `scripts/intake-scan.py` | line 12: `INBOX = Path.home() / "KennisBank" / "00-inbox"` |
-| `scripts/semantic-tiling.py` | lines 20, 21: `WIKI_DIR` and `CACHE_FILE` |
-| `scripts/stale-check.py` | lines 14, 15: `WIKI_DIR`, `SESSIES_DIR` |
-| `commands/intake.md` | every `~/KennisBank/...` reference |
-| `commands/sessielog.md` | every `~/KennisBank/...` reference (template path, scripts path, graphify-out path) |
-| `commands/stale.md` | the `python3 ~/KennisBank/.claude/scripts/stale-check.py` line |
-| `commands/wiki.md` | every `~/KennisBank/...` reference |
-| `skills/autoresearch/SKILL.md` | Step 0 lazy hierarchy bash blocks (Layer 2) |
-| `CLAUDE.md.template` | Layer 2 bash blocks; graphify section |
-| `README.md` | documentation references |
-
-### Files that hardcode the research path
-
-| File | What to edit |
-|------|-----|
-| `setup.sh` | line 9: `RESEARCH="..."` |
-| `skills/autoresearch/SKILL.md` | "Output aanmaken" `mkdir -p ...`, "Outputpad" line, "Rapport aan gebruiker" path |
+| `commands/intake.md`, `commands/sessielog.md`, `commands/stale.md`, `commands/wiki.md` | every `~/KennisBank/...` reference |
+| `skills/autoresearch/SKILL.md` | Step 0 lazy hierarchy bash blocks (Layer 2); research output paths |
+| `CLAUDE.md.template` | Layer 2/3 bash blocks; graphify section |
 | `commands/sessielog.md` | Step 2 `find ~/Claude/research/...` |
-| `CLAUDE.md.template` | Layer 3 `ls ~/Claude/research/...` |
+| `README.md` | documentation references |
 
 ### Recommended approach
 
-There is no env-var indirection in the codebase. Two options:
-
-1. Manually edit all files listed above. Use a global find-replace for `~/KennisBank` and `KennisBank /` constructs (and `~/Claude/research` separately).
-2. Symlink: leave defaults in place and create `ln -s /your/real/path $HOME/KennisBank`. This is simpler and keeps upgrades clean.
+1. Set `KENNISBANK_VAULT` (covers all Python scripts and `doctor.sh`), and
+2. for the prompt files either patch the literal paths or symlink:
+   `ln -s /your/real/path $HOME/KennisBank` and leave the defaults in place.
+   The symlink is simplest and keeps upgrades clean.
 
 ---
 
@@ -298,19 +310,20 @@ There is no env-var indirection in the codebase. Two options:
 
 ### What works
 
-- One vault per user account works. All scripts and commands target `$HOME/KennisBank` exclusively.
+- One vault per user account works. Scripts honor `$KENNISBANK_VAULT` (default `$HOME/KennisBank`); the slash commands target `~/KennisBank` literally.
 - Per-project subdivision inside the vault works via `03-projecten/` subdirectories. Wiki articles can tag a project in frontmatter; `commands/wiki.md` accepts an `$ARGUMENTS` topic filter, but it filters by content match, not by project boundary.
 
 ### What does not work
 
-- **Multiple parallel vaults are not supported.** All scripts hardcode `Path.home() / "KennisBank"`. Switching active vaults requires either editing the source of every script (see section 9) or moving symlinks.
-- **Per-project vault overrides** are not implemented. There is no `KENNISBANK_VAULT` env var, no CLI flag for vault path, no auto-detection from project context.
-- **Concurrent vaults** would collide on the embeddings cache (`$HOME/KennisBank/.claude/embeddings-cache.json`) and on `MEMORY.md` glob ambiguity (section 7).
+- **Multiple parallel vaults are not supported.** The Python scripts and `doctor.sh` resolve one vault root via `$KENNISBANK_VAULT` (default `$HOME/KennisBank`); switching active vaults means changing that variable (or moving a symlink). The slash commands still bake `~/KennisBank` into their prompt bodies (see section 9).
+- **Per-project vault overrides** are not auto-detected. `$KENNISBANK_VAULT` is a single global value; the importers also take `--vault` and `build-karpathy-index.py` takes `--vault-root`, but there is no per-project auto-detection from session context.
+- **Concurrent vaults** would collide on the embeddings cache (`<vault>/.claude/embeddings-cache.json`) and on `MEMORY.md` glob ambiguity (section 7).
 
 ### Workarounds for multi-vault use
 
 | Approach | Trade-off |
 |----------|-----------|
+| `export KENNISBANK_VAULT=/path/to/vault` per shell/session before running scripts | Covers the Python scripts and `doctor.sh`, not the slash-command prompt bodies. |
 | Symlink `$HOME/KennisBank` to the active vault, swap before each session | Manual, error-prone. No active-vault indicator. |
 | Maintain separate clones of this repo with `setup.sh` pointing to different `VAULT` values, and run `setup.sh` per project | Heavy. Each setup overwrites `$HOME/.claude/commands/` for all projects. |
 | Single vault, internal sectioning via `03-projecten/<project-name>/` and frontmatter tags | Recommended. The system was designed for this. |

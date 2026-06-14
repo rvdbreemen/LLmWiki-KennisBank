@@ -13,13 +13,17 @@ Met --dry-run wordt alleen getoond wat er zou veranderen; er wordt niets geschre
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _vaultpath import vault_root  # noqa: E402
+
 # --- configuratie -----------------------------------------------------------
 
-VAULT_ROOT = Path.home() / "KennisBank"
+VAULT_ROOT = vault_root()
 GRAPH_PATH = VAULT_ROOT / "graphify-out" / "graph.json"
 WIKI_DIR_PREFIX = "02-wiki/"
 MIN_CONFIDENCE = 0.75
