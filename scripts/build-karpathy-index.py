@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
@@ -39,14 +40,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-# Optionele PyYAML — gebruik indien beschikbaar voor robuuste frontmatter-parsing.
-try:  # pragma: no cover - import-resolutie alleen
-    import yaml  # type: ignore
-
-    _HAS_YAML = True
-except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore
-    _HAS_YAML = False
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _frontmatter import parse_frontmatter  # noqa: E402
 
 
 VAULT_DEFAULT = Path.home() / "KennisBank"
@@ -416,71 +411,16 @@ apply_categories(load_categories())
 # ----------------------------------------------------------------------------
 # Frontmatter-parsing
 # ----------------------------------------------------------------------------
-
-_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-
-
-def _split_frontmatter(text: str) -> tuple[str, str]:
-    """Geef (frontmatter_block, rest) terug; lege frontmatter als geen match."""
-    m = _FRONTMATTER_RE.match(text)
-    if not m:
-        return "", text
-    return m.group(1), text[m.end():]
+#
+# Frontmatter wordt geparsed via de gedeelde stdlib-parser in _frontmatter.py
+# (import bovenaan). Die geeft een (data, body)-tuple terug; we gebruiken hier
+# alleen de data-dict.
 
 
-def _minimal_yaml_parse(block: str) -> dict[str, Any]:
-    """Zeer beperkte YAML-parser: alleen `key: value` en `key: [a, b, c]` lijsten.
-
-    Voor complexere frontmatter (nested, multiline) — gebruik PyYAML als
-    beschikbaar. Deze fallback is robuust genoeg voor onze vault-conventie.
-    """
-    out: dict[str, Any] = {}
-    for raw in block.splitlines():
-        line = raw.rstrip()
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-        # Lijst-literaal `[a, b, c]`
-        if value.startswith("[") and value.endswith("]"):
-            inner = value[1:-1].strip()
-            if not inner:
-                out[key] = []
-            else:
-                items = [
-                    p.strip().strip('"').strip("'")
-                    for p in inner.split(",")
-                ]
-                out[key] = [it for it in items if it]
-            continue
-        # Quoted string strippen
-        if (value.startswith('"') and value.endswith('"')) or (
-            value.startswith("'") and value.endswith("'")
-        ):
-            value = value[1:-1]
-        out[key] = value
-    return out
-
-
-def parse_frontmatter(text: str) -> dict[str, Any]:
-    """Parse YAML-frontmatter; gebruik PyYAML indien aanwezig, anders minimal parser."""
-    block, _ = _split_frontmatter(text)
-    if not block:
-        return {}
-    if _HAS_YAML:
-        try:
-            data = yaml.safe_load(block)  # type: ignore[union-attr]
-            if isinstance(data, dict):
-                return data
-            return {}
-        except Exception as e:  # pragma: no cover - log + fallback
-            print(f"[warn] PyYAML parse-error, fallback minimal: {e}", file=sys.stderr)
-    return _minimal_yaml_parse(block)
+def _parse_frontmatter_dict(text: str) -> dict[str, Any]:
+    """Parse frontmatter en geef alleen de data-dict terug (body genegeerd)."""
+    data, _ = parse_frontmatter(text)
+    return data
 
 
 # ----------------------------------------------------------------------------
@@ -597,7 +537,7 @@ def scan_wiki(wiki_dir: Path) -> tuple[list[dict[str, Any]], str]:
             continue
 
         try:
-            fm = parse_frontmatter(text)
+            fm = _parse_frontmatter_dict(text)
         except Exception as e:
             print(f"[warn] frontmatter parse-error in {fp.name}: {e}", file=sys.stderr)
             fm = {}
@@ -645,7 +585,7 @@ def scan_sessies(sessies_dir: Path) -> list[dict[str, Any]]:
         title = humanize_slug(slug)
         try:
             text = fp.read_text(encoding="utf-8", errors="replace")
-            fm = parse_frontmatter(text)
+            fm = _parse_frontmatter_dict(text)
             fm_title = str(fm.get("title", "")).strip()
             if fm_title:
                 title = fm_title
