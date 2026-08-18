@@ -1,5 +1,5 @@
 ---
-id: TASK-200
+id: TASK-201
 title: >-
   The reranker multiplies metadata onto a relevance term RRF flattened to 1.1x
 status: To Do
@@ -8,7 +8,7 @@ created_date: '2026-08-16 12:00'
 updated_date: '2026-08-16 16:30'
 labels: []
 dependencies: []
-ordinal: 167800
+ordinal: 168800
 ---
 
 ## Description

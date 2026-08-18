@@ -1,5 +1,5 @@
 ---
-id: TASK-201
+id: TASK-202
 title: >-
   A shared current_focus block, so three clients stop feeling like three systems
 status: To Do
@@ -8,8 +8,8 @@ created_date: '2026-08-16 12:00'
 updated_date: '2026-08-16 12:00'
 labels: []
 dependencies:
-  - TASK-199
-ordinal: 167900
+  - TASK-200
+ordinal: 168900
 ---
 
 ## Description
