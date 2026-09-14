@@ -924,6 +924,24 @@ Vijftien gedragingen zijn individuele toggles in `kennisbank-settings.json`, beh
 | `orientation` | uit | Injecteer een compacte vault-oriëntatie bij sessiestart |
 | `graph_retrieval` | aan | Haal de buur-expansie uit de gewogen graafindex (A/B-bewezen, TASK-87) |
 
+## Een transcript-achterstand wegwerken
+
+Een sweep-run stopt op zijn eigen budget en laat de rest pending, want hij deelt een GPU met het embeddingmodel dat recall bedient. Een achterstand gaat dus alleen weg door de run te herhalen:
+
+```bash
+# herhaal de sweep tot er niets meer pending is
+python3 ~/KennisBank/.claude/scripts/sweep-chain.py
+
+# stoppen: de ketting eindigt NA de run die op dat moment bezig is
+touch ~/KennisBank/.claude/.sweep-stop
+```
+
+De stopvlag werkt met opzet tussen runs en onderbreekt een lopende sweep nooit. De watermark is append-only, dus een halverwege afgekapt transcript zou zichzelf als gesweept markeren en de rest van zijn inhoud voorgoed kwijtraken. Haal de vlag weg voor de volgende ketting.
+
+De ketting wacht in plaats van te duwen: hij zit een elders gestarte sweep uit (de sessiestart-hook start er ook een, wat een gemiste beurt is en geen fout) en houdt zich in onder `MIN_FREE_GB` vrij geheugen. Hij schrijft een regel per run naar `~/KennisBank/.claude/sweep-chain.log`.
+
+Transcripts per run is de knop die telt, niet het tijdbudget. Capture kost ongeveer 300 s per transcript, maar de onderhoudsstaart na de lus kost ongeveer 3300 s per run ongeacht hoeveel transcripts hij deed, dus de kosten per transcript zijn 300 + 3300/N: gemeten 580 s bij N=10 en 277 s bij N=40. Het plafond is de sweep-lease (`LEASE_MAX_SEC`, 14400 s) en niet het rendement, want een run die zijn lease overleeft stopt met verversen en dan kan een tweede sweep ernaast starten.
+
 ## Je retrieval meten
 
 Twee harnassen houden het systeem eerlijk:
