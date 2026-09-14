@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/sweep-chain.py` repeats the sweep until the transcript backlog is
+  empty.** One run stops on its own budget by design, since the sweep shares a
+  GPU with the embedding model serving recall, and nothing in the repository
+  repeated it: on 2026-09-09 a backlog of 97 transcripts had stood still for 35
+  hours. A throwaway version drained it to zero in about thirteen hours with no
+  errors, and the numbers are the reason to keep it. Capture costs ~300 s per
+  transcript, but the maintenance tail costs ~3300 s PER RUN whatever the run
+  handled, so cost per transcript is 300 + 3300/N -- measured 580 s at N=10 and
+  277 s at N=40. Raising `KB_SWEEP_TIME_BUDGET` changed nothing because `--max`
+  bound first. The ceiling on N is `_sweepstate.LEASE_MAX_SEC`, not the return.
+  Three things the chain gets right that are not obvious: the memory gate takes
+  the median of three samples, because free memory swung 2.5 to 4.4 GB within
+  four seconds here and a single reading blocked at a false 1.7 GB where the
+  median read 6.6; a lock collision with the session-start hook is a missed turn
+  that waits and retries rather than counting toward the give-up threshold; and
+  the stop flag `<vault>/.claude/.sweep-stop` takes effect BETWEEN runs, since
+  the append-only watermark would mark a half-processed transcript as swept.
+  Documented under "Draining a transcript backlog" in the README.
+
 ### Fixed
 
 - **The bounded subprocess helper no longer rewrites bash arguments into a

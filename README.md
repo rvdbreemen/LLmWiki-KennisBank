@@ -894,6 +894,24 @@ Fifteen behaviours are individual toggles in `kennisbank-settings.json`, managed
 | `orientation` | off | Inject a compact vault orientation at session start |
 | `graph_retrieval` | on | Source the neighbor expansion from the weighted graph index (A/B-proven, TASK-87) |
 
+## Draining a transcript backlog
+
+One sweep run stops on its own budget and leaves the rest pending, because it shares a GPU with the embedding model that serves recall. A backlog therefore only disappears by repeating the run:
+
+```bash
+# repeat the sweep until nothing is pending
+python3 ~/KennisBank/.claude/scripts/sweep-chain.py
+
+# stop it: the chain ends AFTER the run that is busy right now
+touch ~/KennisBank/.claude/.sweep-stop
+```
+
+The stop flag deliberately takes effect between runs and never interrupts a running sweep. The watermark is append-only, so a transcript cut off halfway would mark itself swept and lose the rest of its content for good. Remove the flag again before the next chain.
+
+The chain waits rather than pushes: it sits out a sweep started elsewhere (the session-start hook launches one too, which is a missed turn and not a failure), and it holds off below `MIN_FREE_GB` free memory. It writes one line per run to `~/KennisBank/.claude/sweep-chain.log`.
+
+Transcripts per run is the knob that matters, not the time budget. Capture costs roughly 300 s per transcript, but the maintenance tail after the loop costs roughly 3300 s per run regardless of how many transcripts it handled, so the cost per transcript is 300 + 3300/N: measured at 580 s for N=10 and 277 s for N=40. The ceiling is the sweep lease (`LEASE_MAX_SEC`, 14400 s), not the return, because a run that outlives its lease stops refreshing it and a second sweep can start beside it.
+
 ## Measuring your retrieval
 
 Two harnesses keep the system honest:
