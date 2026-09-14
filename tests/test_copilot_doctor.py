@@ -15,37 +15,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCTOR = REPO_ROOT / "scripts" / "doctor.sh"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _proc import run_bounded  # noqa: E402
+# _find_bash and _posix live in _proc beside run_bounded: they describe the
+# same bash, and tests/test_projection_doctor_shell.py imports them from here.
+from _proc import (  # noqa: E402
+    find_bash as _find_bash,
+    posix_path as _posix,
+    run_bounded,
+)
 
 #: Gemeten op een rustige machine: de hele doctor.sh tegen deze
 #: fixture kost ~18 s. 120 s laat ruimte voor een trage of belaste
 #: machine zonder dat een echte hang de suite gijzelt.
 DOCTOR_TIMEOUT = 120
-
-
-def _find_bash():
-    """Prefer Git Bash on Windows; reject the WSL filesystem namespace."""
-    if os.name != "nt":
-        return shutil.which("bash")
-    git = shutil.which("git")
-    candidates = []
-    if git:
-        candidates.append(Path(git).resolve().parent.parent / "bin" / "bash.exe")
-    for root in (
-        os.environ.get("GIT_INSTALL_ROOT"),
-        os.environ.get("ProgramFiles"),
-        os.environ.get("ProgramFiles(x86)"),
-    ):
-        if root:
-            base = Path(root)
-            candidates.extend(
-                (base / "bin" / "bash.exe", base / "Git" / "bin" / "bash.exe")
-            )
-    for candidate in candidates:
-        if candidate.is_file():
-            return str(candidate)
-    bash = shutil.which("bash")
-    return bash if bash and "system32" not in bash.lower() else None
 
 
 BASH = _find_bash()
@@ -55,15 +36,6 @@ VAULT_SCRIPTS = (
     "_copilot.py", "kb-copilot-capture.py", "kb-mcp.py", "kb-activity.py",
     "build-activity-index.py", "_activity.py", "_frontmatter.py", "_vaultpath.py",
 )
-
-
-def _posix(path: Path) -> str:
-    s = str(path)
-    if os.name == "nt":
-        s = s.replace("\\", "/")
-        if len(s) > 1 and s[1] == ":":
-            s = "/" + s[0].lower() + s[2:]
-    return s
 
 
 @unittest.skipIf(BASH is None, "bash not available")

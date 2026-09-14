@@ -46,6 +46,56 @@ REAP_SEC = 5.0
 POLL_SEC = 0.05
 
 
+def find_bash():
+    """Locate a bash whose filesystem namespace matches ``posix_path``.
+
+    On Windows that means Git Bash (MSYS2), preferred over whatever ``bash``
+    happens to sit first on PATH. WSL's bash is rejected deliberately: it mounts
+    the drives at /mnt/c, so a path this suite builds would not resolve there.
+    """
+    if os.name != "nt":
+        return shutil.which("bash")
+    git = shutil.which("git")
+    kandidaten = []
+    if git:
+        kandidaten.append(Path(git).resolve().parent.parent / "bin" / "bash.exe")
+    for root in (
+        os.environ.get("GIT_INSTALL_ROOT"),
+        os.environ.get("ProgramFiles"),
+        os.environ.get("ProgramFiles(x86)"),
+    ):
+        if root:
+            basis = Path(root)
+            kandidaten.extend(
+                (basis / "bin" / "bash.exe", basis / "Git" / "bin" / "bash.exe")
+            )
+    for kandidaat in kandidaten:
+        if kandidaat.is_file():
+            return str(kandidaat)
+    bash = shutil.which("bash")
+    return bash if bash and "system32" not in bash.lower() else None
+
+
+def posix_path(path) -> str:
+    """Render *path* the way the bash from ``find_bash`` reads it.
+
+    MSYS2 mounts the drives at /c, not at /mnt/c -- that second form is WSL.
+    Measured against C:/Program Files/Git/bin/bash.exe, which reports
+    OSTYPE=cygwin: the /c form returns 0, the /mnt/c form returns 127 with
+    "No such file or directory".
+
+    This is the only path converter in the suite. A second one diverged into
+    the WSL layout once already and cost two failing tests (TASK-251), so a
+    third belongs here as an edit, not elsewhere as a copy.
+    """
+    s = str(path)
+    if os.name == "nt":
+        s = s.replace("\\", "/")
+        if len(s) > 1 and s[1] == ":":
+            s = "/" + s[0].lower() + s[2:]
+    return s
+
+
 @dataclass
 class Uitkomst:
     output: str          #: stdout en stderr samengevoegd, in die volgorde
@@ -85,24 +135,16 @@ def run_bounded(cmd, *, cwd=None, env=None, timeout: float,
 
     Geeft altijd de output terug die er op dat moment was, ook bij een timeout:
     een test die afkapt wil juist zien hoe ver het kwam.
+
+    argv is passed through verbatim. This function does not know what any
+    argument means, so it cannot translate one: a caller invoking bash with a
+    Windows path renders it with ``posix_path`` first.
     """
     # Bewust mkdtemp met handmatig opruimen, geen TemporaryDirectory. Op
     # Windows houdt een zojuist gedood kleinkind de geerfde handle nog even
     # vast, en dan gooit de automatische opruiming een PermissionError -- een
     # test die correct afkapte zou dan alsnog rood worden op het opruimen.
-    # Git-for-Windows bash interprets backslashes in a Windows argument as
-    # escapes. Normalize only bash script arguments; Python/native commands
-    # must retain their original argv semantics.
     command = list(cmd)
-    if os.name == "nt" and command and Path(str(command[0])).name.lower() in {"bash", "bash.exe"}:
-        def _bash_arg(value):
-            if not isinstance(value, (str, os.PathLike)):
-                return value
-            text = str(value).replace("\\", "/")
-            if len(text) >= 3 and text[1:3] == ":/":
-                text = "/mnt/" + text[0].lower() + text[2:]
-            return text
-        command = [command[0]] + [_bash_arg(value) for value in command[1:]]
     d = tempfile.mkdtemp(prefix="kb-proc-")
     try:
         uit = Path(d) / "uit.txt"

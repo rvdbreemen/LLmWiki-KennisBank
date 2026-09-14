@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The bounded subprocess helper no longer rewrites bash arguments into a
+  filesystem namespace that does not exist here.** `run_bounded` translated
+  every argument of a bash command into the WSL layout, turning `C:/x` into
+  `/mnt/c/x`. The bash this suite selects on Windows is Git Bash (MSYS2), which
+  reports `OSTYPE=cygwin` and mounts the drives at `/c`. Measured against
+  `C:/Program Files/Git/bin/bash.exe`: a raw Windows path returns 0, the `/c`
+  form returns 0, the `/mnt/c` form returns 127 with "No such file or
+  directory". Two tests in `tests/test_proc_bounded.py` failed on it. The
+  comment above the code said it was written for "Git-for-Windows bash", so the
+  intent was right and only the layout was wrong. The cause was a duplicate:
+  `_posix` already produced the correct form and was imported by two other test
+  modules. `run_bounded` now passes argv through verbatim, because it cannot
+  know what an argument means, and the one converter lives beside it as
+  `posix_path` with `find_bash`, which rejects WSL's bash for the same reason.
+  `tests/test_proc_bounded.py` resolved bash with `shutil.which` and so bypassed
+  that rejection; it now uses the shared resolver like its neighbours.
+
 - **A sweep lock left behind by a hard kill is reclaimed at once instead of an
   hour later.** `sweep_lock()` releases through a context manager, so an
   exception or an interrupt frees it, but a hard kill never runs `__exit__` and

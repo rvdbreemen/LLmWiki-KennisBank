@@ -15,9 +15,11 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _proc import run_bounded  # noqa: E402
+from _proc import find_bash, posix_path, run_bounded  # noqa: E402
 
-BASH = shutil.which("bash")
+#: Dezelfde resolver als de andere bash-tests. shutil.which zou hier de
+#: eerste bash op PATH pakken, WSL incluis, en die leest /c/... niet.
+BASH = find_bash()
 
 #: Ouder is snel klaar, kleinkind leeft door en heeft de uitvoer geerfd.
 KLEINKIND = '''
@@ -85,7 +87,7 @@ class RunBoundedTest(unittest.TestCase):
         script = self.tmp / "kleinkind.sh"
         self._write_bash(script, KLEINKIND)
         begin = time.monotonic()
-        r = run_bounded([BASH, str(script)], timeout=20)
+        r = run_bounded([BASH, posix_path(script)], timeout=20)
         verstreken = time.monotonic() - begin
         self.assertFalse(r.timed_out,
                          "de ouder was klaar; dit hoort geen timeout te zijn")
@@ -100,11 +102,30 @@ class RunBoundedTest(unittest.TestCase):
         script = self.tmp / "hangt.sh"
         self._write_bash(script, HANGT)
         begin = time.monotonic()
-        r = run_bounded([BASH, str(script)], timeout=3)
+        r = run_bounded([BASH, posix_path(script)], timeout=3)
         verstreken = time.monotonic() - begin
         self.assertTrue(r.timed_out)
         self.assertLess(verstreken, 15,
                         f"budget was 3s, werkelijk {verstreken:.1f}s")
+
+    @unittest.skipIf(BASH is None, "bash niet beschikbaar")
+    def test_argumenten_bereiken_bash_ongewijzigd(self):
+        """run_bounded mag argv niet herschrijven op grond van argv[0].
+
+        Een eerdere versie vertaalde elk argument van een bash-commando naar de
+        WSL-namespace: C:/x werd /mnt/c/x. De bash die deze suite kiest is MSYS2
+        en mount de schijven op /c, dus daar bestond dat pad niet en bash gaf
+        rc 127. Tegen die versie faalt deze test.
+
+        Wie een Windows-pad aan bash geeft, rendert het zelf met posix_path.
+        run_bounded weet niet wat een argument betekent en kan het dus ook niet
+        vertalen.
+        """
+        letterlijk = r"C:\Users\niemand\pad met spatie"
+        r = run_bounded([BASH, "-c", 'printf "%s" "$1"', "bash", letterlijk],
+                        timeout=20)
+        self.assertFalse(r.timed_out, r.output)
+        self.assertEqual(r.output, letterlijk)
 
     def test_output_tot_het_afkappunt_blijft_bewaard(self):
         # Een test die afkapt wil zien hoe ver het kwam; lege output maakt de
