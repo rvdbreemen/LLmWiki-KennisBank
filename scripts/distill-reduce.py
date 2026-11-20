@@ -403,17 +403,24 @@ def raw_session_link(vault: Path, stem: str) -> str | None:
 
 
 def insert_in_section(text: str, section: str, addition: str) -> str:
-    """Append ``addition`` at the end of ``## section``; create the section before
-    the closing sections when the article does not have it."""
-    heading = section if section.startswith("#") else f"## {section}"
+    """Append ``addition`` at the end of the section titled ``section``, whatever its
+    heading level (## or ###); the section ends at the next heading of the same or
+    a higher level. A missing section is created as ## before the closing ones."""
+    name = section.lstrip("#").strip()
     lines = text.split("\n")
-    idx = next((i for i, ln in enumerate(lines) if ln.strip() == heading.strip()), None)
+    level, idx = 0, None
+    for i, ln in enumerate(lines):
+        m = re.match(r"^(#{2,6})\s+(.*?)\s*$", ln)
+        if m and m.group(2) == name:
+            level, idx = len(m.group(1)), i
+            break
     if idx is None:
         tail = next((i for i, ln in enumerate(lines)
                      if any(ln.startswith(t) for t in TAIL_SECTIONS)), len(lines))
-        block = [heading, "", addition.rstrip(), ""]
+        block = [f"## {name}", "", addition.rstrip(), ""]
         return "\n".join(lines[:tail] + block + lines[tail:])
-    end = next((i for i in range(idx + 1, len(lines)) if lines[i].startswith("## ")),
+    end = next((i for i in range(idx + 1, len(lines))
+                if (m := re.match(r"^(#{1,6})\s", lines[i])) and len(m.group(1)) <= level),
                len(lines))
     while end > idx + 1 and not lines[end - 1].strip():
         end -= 1

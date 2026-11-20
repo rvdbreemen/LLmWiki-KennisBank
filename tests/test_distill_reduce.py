@@ -176,6 +176,16 @@ class DraftAndGateTest(unittest.TestCase):
         self.assertEqual((self.vault / "02-wiki" / "art-a.md").read_text(encoding="utf-8"), text,
                          "a job is applied once")
 
+    def test_insert_into_a_level_three_subsection(self):
+        art = "# A\n## Kernpunten\n### Sub een\n- x\n### Sub twee\n- y\n## Bronnen\n- b\n"
+        out = dr.insert_in_section(art, "Sub een", "- nieuw")
+        self.assertLess(out.index("- nieuw"), out.index("### Sub twee"))
+        self.assertGreater(out.index("- nieuw"), out.index("- x"))
+        self.assertEqual(out.count("Sub een"), 1, "no duplicate heading created")
+        out2 = dr.insert_in_section(art, "Kernpunten", "- eind")
+        self.assertLess(out2.index("- y"), out2.index("- eind"))
+        self.assertLess(out2.index("- eind"), out2.index("## Bronnen"))
+
     def test_model_supplied_slug_and_title_cannot_escape_or_inject(self):
         # Security review: slug/title come from the cloud model (untrusted).
         for bad in ("../../.claude/settings", "a/b", "A-Caps", "x.md", "", "-lead"):
