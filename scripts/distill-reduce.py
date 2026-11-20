@@ -451,6 +451,8 @@ def cmd_apply(args, vault: Path, out_dir: Path) -> int:
     "text": revised text, "section": heading}. Only ACCEPT/REVISE of grounded
     items is written; every job is applied once (``_applied.jsonl``)."""
     verdicts = json.loads(Path(args.verdicts).read_text(encoding="utf-8"))
+    if isinstance(verdicts.get("verdicts"), dict):  # {"verdicts": {...}, "issues": {...}}
+        verdicts = verdicts["verdicts"]
     applied_log = out_dir / "_applied.jsonl"
     done = {json.loads(ln)["id"] for ln in (applied_log.read_text(encoding="utf-8").splitlines()
                                             if applied_log.exists() else []) if ln.strip()}
@@ -491,7 +493,8 @@ def cmd_apply(args, vault: Path, out_dir: Path) -> int:
                 doc = (f"---\ntitle: {json.dumps(title, ensure_ascii=False)}\ntype: wiki\n"
                        f"tags: []\nstatus: concept\ncreated: {today}\nupdated: {today}\n"
                        f"author: claude\n---\n\n# {title}\n\n## Definitie\n"
-                       f"{str(na.get('definition', '')).strip()}\n\n{str(body).strip()}\n")
+                       f"{str(v.get('definition') or na.get('definition', '')).strip()}\n\n"
+                       f"{str(body).strip()}\n")
                 path.write_text(add_provenance(doc, _label(na["title"]), links), encoding="utf-8")
                 changed.append(path.name)
                 stats["new_articles"] += 1
