@@ -145,6 +145,37 @@ class DraftAndGateTest(unittest.TestCase):
         rec = json.loads((self.out / "update--art-a.json").read_text(encoding="utf-8"))
         self.assertEqual([a["grounded"] for a in rec["draft"]["additions"]], [True, False])
 
+    def test_apply_writes_only_reviewed_grounded_items_once(self):
+        self._toggle(True)
+        (self.vault / "01-raw" / "sessies").mkdir(parents=True)
+        (self.vault / "01-raw" / "sessies" / "raw-sessie-2026-11-01-iets-s1.md").write_text("x", encoding="utf-8")
+        (self.vault / "02-wiki" / "art-a.md").write_text(
+            "---\ntitle: A\nupdated: 2026-01-01\n---\n# A\n\n## Kernpunten\n- oud punt\n\n"
+            "## Sessie-herkomst\n- oud: [[raw-sessie-oud]]\n", encoding="utf-8")
+        draft = json.loads(json.dumps(UPDATE))
+        draft["additions"] += [
+            {"section": "Kernpunten", "text": "- afgewezen punt", "sources": UPDATE["additions"][0]["sources"]},
+            {"section": "Kernpunten", "text": "- verzonnen", "sources": [{"stem": "s1", "evidence": "dit staat nergens in de bron tekst zomaar"}]}]
+        with mock.patch.object(dr.dm, "_post", return_value=(200, _draft_body(draft))):
+            dr.main(["draft", "--jobs-file", str(self.snap)])
+        dr.main(["gate"])
+        verdicts = self.out / "_verdicts.json"
+        verdicts.write_text(json.dumps({"update--art-a": [
+            {"n": 1, "verdict": "REVISE", "text": "- De pcb-pool staat vast op 16.", "section": "Kernpunten"},
+            {"n": 2, "verdict": "REJECT"},
+            {"n": 3, "verdict": "ACCEPT"}]}), encoding="utf-8")
+        dr.main(["apply", "--verdicts", str(verdicts)])
+        text = (self.vault / "02-wiki" / "art-a.md").read_text(encoding="utf-8")
+        self.assertIn("- De pcb-pool staat vast op 16.", text)
+        self.assertNotIn("afgewezen", text, "REJECT must not be written")
+        self.assertNotIn("verzonnen", text, "ungrounded must not be written even if accepted")
+        self.assertIn("[[raw-sessie-2026-11-01-iets-s1]]", text)
+        self.assertNotIn("updated: 2026-01-01", text)
+        self.assertLess(text.index("De pcb-pool staat vast"), text.index("## Sessie-herkomst"))
+        dr.main(["apply", "--verdicts", str(verdicts)])
+        self.assertEqual((self.vault / "02-wiki" / "art-a.md").read_text(encoding="utf-8"), text,
+                         "a job is applied once")
+
 
 if __name__ == "__main__":
     unittest.main()

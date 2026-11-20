@@ -370,6 +370,124 @@ def cmd_gate(args, vault: Path, out_dir: Path) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- apply
+
+#: Sections that close an article; a new content section goes before the first.
+TAIL_SECTIONS = ("## Verbanden", "## Bronnen", "## Sessie-herkomst")
+
+
+def raw_session_link(vault: Path, stem: str) -> str | None:
+    """The raw-session stub for a transcript stem, matched on its session suffix."""
+    sid8 = stem.rsplit("-", 1)[-1]
+    hits = sorted((vault / "01-raw" / "sessies").glob(f"raw-sessie-*-{sid8}.md"))
+    return hits[0].stem if hits else None
+
+
+def insert_in_section(text: str, section: str, addition: str) -> str:
+    """Append ``addition`` at the end of ``## section``; create the section before
+    the closing sections when the article does not have it."""
+    heading = section if section.startswith("#") else f"## {section}"
+    lines = text.split("\n")
+    idx = next((i for i, ln in enumerate(lines) if ln.strip() == heading.strip()), None)
+    if idx is None:
+        tail = next((i for i, ln in enumerate(lines)
+                     if any(ln.startswith(t) for t in TAIL_SECTIONS)), len(lines))
+        block = [heading, "", addition.rstrip(), ""]
+        return "\n".join(lines[:tail] + block + lines[tail:])
+    end = next((i for i in range(idx + 1, len(lines)) if lines[i].startswith("## ")),
+               len(lines))
+    while end > idx + 1 and not lines[end - 1].strip():
+        end -= 1
+    return "\n".join(lines[:end] + ["", addition.rstrip()] + lines[end:])
+
+
+def add_provenance(text: str, label: str, links: list[str]) -> str:
+    entries = [f"- {label}: [[{ln}]]" for ln in links]
+    if not entries:
+        return text
+    if "\n## Sessie-herkomst" not in text:
+        return text.rstrip() + "\n\n## Sessie-herkomst\n" + "\n".join(entries) + "\n"
+    return insert_in_section(text, "Sessie-herkomst", "\n".join(entries))
+
+
+def bump_updated(text: str, today: str) -> str:
+    return re.sub(r"(?m)^updated:\s*\S+", f"updated: {today}", text, count=1)
+
+
+def _label(text: str) -> str:
+    plain = re.sub(r"[*_`#>\[\]]", "", text).strip().splitlines()[0]
+    return (plain[:90].rsplit(" ", 1)[0] + "...") if len(plain) > 90 else plain
+
+
+def cmd_apply(args, vault: Path, out_dir: Path) -> int:
+    """Write reviewer-approved drafts into the wiki. ``--verdicts`` maps a job id to
+    a list of {"n": 1-based addition index or "new", "verdict": ACCEPT|REVISE|REJECT,
+    "text": revised text, "section": heading}. Only ACCEPT/REVISE of grounded
+    items is written; every job is applied once (``_applied.jsonl``)."""
+    verdicts = json.loads(Path(args.verdicts).read_text(encoding="utf-8"))
+    applied_log = out_dir / "_applied.jsonl"
+    done = {json.loads(ln)["id"] for ln in (applied_log.read_text(encoding="utf-8").splitlines()
+                                            if applied_log.exists() else []) if ln.strip()}
+    today = time.strftime("%Y-%m-%d")
+    stats = {"jobs": 0, "written": 0, "skipped_ungrounded": 0, "rejected": 0, "new_articles": 0}
+    for job_id, items in verdicts.items():
+        if job_id in done:
+            continue
+        rec = dm._read_json(out_dir / f"{job_id}.json")
+        if not isinstance(rec, dict) or rec.get("status") != "ok":
+            print(f"  no draft for {job_id}", file=sys.stderr)
+            continue
+        d = rec["draft"]
+        changed = []
+        for v in items:
+            if v.get("verdict") not in ("ACCEPT", "REVISE"):
+                stats["rejected"] += 1
+                continue
+            if v.get("n") == "new":
+                na = d.get("new_article") or {}
+                if not na.get("grounded"):
+                    stats["skipped_ungrounded"] += 1
+                    continue
+                path = vault / "02-wiki" / f"{na['slug']}.md"
+                if path.exists():
+                    print(f"  new article exists, not overwritten: {path.name}", file=sys.stderr)
+                    continue
+                body = v.get("text") or na["body"]
+                links = sorted({ln for s in na.get("sources") or []
+                                if (ln := raw_session_link(vault, str(s.get("stem"))))})
+                doc = (f"---\ntitle: \"{na['title']}\"\ntype: wiki\ntags: []\nstatus: concept\n"
+                       f"created: {today}\nupdated: {today}\nauthor: claude\n---\n\n"
+                       f"# {na['title']}\n\n## Definitie\n{na.get('definition', '').strip()}\n\n"
+                       f"{body.strip()}\n")
+                path.write_text(add_provenance(doc, _label(na["title"]), links), encoding="utf-8")
+                changed.append(path.name)
+                stats["new_articles"] += 1
+                continue
+            adds = d.get("additions") or []
+            i = int(v["n"]) - 1
+            if not 0 <= i < len(adds):
+                continue
+            a = adds[i]
+            if not a.get("grounded"):
+                stats["skipped_ungrounded"] += 1
+                continue
+            path = vault / "02-wiki" / f"{rec['article']}.md"
+            text = path.read_text(encoding="utf-8")
+            body = v.get("text") or a["text"]
+            text = insert_in_section(text, v.get("section") or a.get("section") or "Kernpunten", body)
+            links = sorted({ln for s in a.get("sources") or []
+                            if (ln := raw_session_link(vault, str(s.get("stem"))))})
+            text = bump_updated(add_provenance(text, _label(body), links), today)
+            path.write_text(text, encoding="utf-8")
+            changed.append(path.name)
+            stats["written"] += 1
+        with applied_log.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"id": job_id, "ts": today, "files": sorted(set(changed))}) + "\n")
+        stats["jobs"] += 1
+    print(f"apply: {stats}")
+    return 0
+
+
 def main(argv=None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -392,11 +510,14 @@ def main(argv=None) -> int:
     d.add_argument("--timeout", type=float, default=300.0)
     d.add_argument("--max-tokens", type=int, default=12000)
     sub.add_parser("gate")
+    a = sub.add_parser("apply")
+    a.add_argument("--verdicts", required=True, help="reviewer verdicts JSON")
     args = ap.parse_args(argv)
     vault = vault_root()
     out_dir = Path(args.out) if args.out else vault / ".claude" / "distill-reduce"
     out_dir.mkdir(parents=True, exist_ok=True)
-    return {"plan": cmd_plan, "draft": cmd_draft, "gate": cmd_gate}[args.cmd](args, vault, out_dir)
+    return {"plan": cmd_plan, "draft": cmd_draft, "gate": cmd_gate,
+            "apply": cmd_apply}[args.cmd](args, vault, out_dir)
 
 
 if __name__ == "__main__":
