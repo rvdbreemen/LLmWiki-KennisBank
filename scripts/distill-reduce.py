@@ -433,7 +433,27 @@ def add_provenance(text: str, label: str, links: list[str]) -> str:
         return text
     if "\n## Sessie-herkomst" not in text:
         return text.rstrip() + "\n\n## Sessie-herkomst\n" + "\n".join(entries) + "\n"
-    return insert_in_section(text, "Sessie-herkomst", "\n".join(entries))
+    # A provenance list stays one list: append right after its last line,
+    # without the blank line insert_in_section puts between prose blocks.
+    lines = text.split("\n")
+    idx = next(i for i, ln in enumerate(lines) if ln.strip() == "## Sessie-herkomst")
+    end = next((i for i in range(idx + 1, len(lines)) if re.match(r"^#{1,2}\s", lines[i])),
+               len(lines))
+    while end > idx + 1 and not lines[end - 1].strip():
+        end -= 1
+    return "\n".join(lines[:end] + entries + lines[end:])
+
+
+def read_doc(path: Path) -> tuple[str, str]:
+    """Text with \\n line ends, plus the file's own line end to write back with."""
+    raw = path.read_bytes().decode("utf-8")
+    return raw.replace("\r\n", "\n"), ("\r\n" if "\r\n" in raw else "\n")
+
+
+def write_doc(path: Path, text: str, eol: str = "\n") -> None:
+    """Write without the platform newline translation of write_text, keeping the
+    article's original line ends so a diff shows only the real change."""
+    path.write_bytes(text.replace("\r\n", "\n").replace("\n", eol).encode("utf-8"))
 
 
 def bump_updated(text: str, today: str) -> str:
@@ -495,7 +515,7 @@ def cmd_apply(args, vault: Path, out_dir: Path) -> int:
                        f"author: claude\n---\n\n# {title}\n\n## Definitie\n"
                        f"{str(v.get('definition') or na.get('definition', '')).strip()}\n\n"
                        f"{str(body).strip()}\n")
-                path.write_text(add_provenance(doc, _label(na["title"]), links), encoding="utf-8")
+                write_doc(path, add_provenance(doc, _label(na["title"]), links))
                 changed.append(path.name)
                 stats["new_articles"] += 1
                 continue
@@ -508,13 +528,13 @@ def cmd_apply(args, vault: Path, out_dir: Path) -> int:
                 stats["skipped_ungrounded"] += 1
                 continue
             path = vault / "02-wiki" / f"{rec['article']}.md"
-            text = path.read_text(encoding="utf-8")
+            text, eol = read_doc(path)
             body = v.get("text") or a["text"]
             text = insert_in_section(text, v.get("section") or a.get("section") or "Kernpunten", body)
             links = sorted({ln for s in a.get("sources") or []
                             if (ln := raw_session_link(vault, str(s.get("stem"))))})
             text = bump_updated(add_provenance(text, _label(body), links), today)
-            path.write_text(text, encoding="utf-8")
+            write_doc(path, text, eol)
             changed.append(path.name)
             stats["written"] += 1
         with applied_log.open("a", encoding="utf-8") as f:

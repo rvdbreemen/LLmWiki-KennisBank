@@ -176,6 +176,22 @@ class DraftAndGateTest(unittest.TestCase):
         self.assertEqual((self.vault / "02-wiki" / "art-a.md").read_text(encoding="utf-8"), text,
                          "a job is applied once")
 
+    def test_line_ends_are_kept_and_provenance_stays_one_list(self):
+        # Regression 2026-11-20: write_text turned an LF article into CRLF, so the
+        # vault diff showed every line as changed; provenance got blank lines.
+        for eol in ("\n", "\r\n"):
+            p = self.vault / f"eol{len(eol)}.md"
+            p.write_bytes(("# T\n## Sessie-herkomst\n- a: [[x]]\n").replace("\n", eol).encode())
+            text, got = dr.read_doc(p)
+            text = dr.add_provenance(text, "b", ["y"])
+            text = dr.add_provenance(text, "c", ["z"])
+            dr.write_doc(p, text, got)
+            raw = p.read_bytes().decode()
+            self.assertEqual(got, eol)
+            if eol == "\n":
+                self.assertNotIn("\r", raw)
+            self.assertIn(f"- a: [[x]]{eol}- b: [[y]]{eol}- c: [[z]]", raw)
+
     def test_insert_into_a_level_three_subsection(self):
         art = "# A\n## Kernpunten\n### Sub een\n- x\n### Sub twee\n- y\n## Bronnen\n- b\n"
         out = dr.insert_in_section(art, "Sub een", "- nieuw")
