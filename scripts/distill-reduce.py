@@ -376,6 +376,25 @@ def cmd_gate(args, vault: Path, out_dir: Path) -> int:
 TAIL_SECTIONS = ("## Verbanden", "## Bronnen", "## Sessie-herkomst")
 
 
+_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def wiki_path(vault: Path, slug: str) -> Path | None:
+    """The article path for a model-supplied slug, or None when the slug is not a
+    plain kebab-case name or would resolve outside 02-wiki."""
+    if not _SLUG.match(slug or "") or len(slug) > 120:
+        return None
+    wiki = (vault / "02-wiki").resolve()
+    path = (wiki / f"{slug}.md").resolve()
+    return path if path.parent == wiki else None
+
+
+def safe_title(title) -> str:
+    """One line, no control characters; '' when nothing usable is left."""
+    t = re.sub(r"[\x00-\x1f\x7f]+", " ", str(title or "")).strip()
+    return t[:200]
+
+
 def raw_session_link(vault: Path, stem: str) -> str | None:
     """The raw-session stub for a transcript stem, matched on its session suffix."""
     sid8 = stem.rsplit("-", 1)[-1]
@@ -448,17 +467,24 @@ def cmd_apply(args, vault: Path, out_dir: Path) -> int:
                 if not na.get("grounded"):
                     stats["skipped_ungrounded"] += 1
                     continue
-                path = vault / "02-wiki" / f"{na['slug']}.md"
+                # slug and title come from the cloud model: untrusted input that a
+                # prompt injection in an archived transcript can steer.
+                slug, title = str(na.get("slug", "")), safe_title(na.get("title"))
+                path = wiki_path(vault, slug)
+                if path is None or not title:
+                    print(f"  unsafe slug/title rejected: {slug!r}", file=sys.stderr)
+                    stats["rejected"] += 1
+                    continue
                 if path.exists():
                     print(f"  new article exists, not overwritten: {path.name}", file=sys.stderr)
                     continue
                 body = v.get("text") or na["body"]
                 links = sorted({ln for s in na.get("sources") or []
                                 if (ln := raw_session_link(vault, str(s.get("stem"))))})
-                doc = (f"---\ntitle: \"{na['title']}\"\ntype: wiki\ntags: []\nstatus: concept\n"
-                       f"created: {today}\nupdated: {today}\nauthor: claude\n---\n\n"
-                       f"# {na['title']}\n\n## Definitie\n{na.get('definition', '').strip()}\n\n"
-                       f"{body.strip()}\n")
+                doc = (f"---\ntitle: {json.dumps(title, ensure_ascii=False)}\ntype: wiki\n"
+                       f"tags: []\nstatus: concept\ncreated: {today}\nupdated: {today}\n"
+                       f"author: claude\n---\n\n# {title}\n\n## Definitie\n"
+                       f"{str(na.get('definition', '')).strip()}\n\n{str(body).strip()}\n")
                 path.write_text(add_provenance(doc, _label(na["title"]), links), encoding="utf-8")
                 changed.append(path.name)
                 stats["new_articles"] += 1

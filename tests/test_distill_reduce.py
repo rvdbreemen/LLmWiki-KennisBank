@@ -176,6 +176,25 @@ class DraftAndGateTest(unittest.TestCase):
         self.assertEqual((self.vault / "02-wiki" / "art-a.md").read_text(encoding="utf-8"), text,
                          "a job is applied once")
 
+    def test_model_supplied_slug_and_title_cannot_escape_or_inject(self):
+        # Security review: slug/title come from the cloud model (untrusted).
+        for bad in ("../../.claude/settings", "a/b", "A-Caps", "x.md", "", "-lead"):
+            self.assertIsNone(dr.wiki_path(self.vault, bad), bad)
+        self.assertIsNotNone(dr.wiki_path(self.vault, "goed-artikel-2"))
+        self.assertEqual(dr.safe_title('Kop"\n---\nstatus: actief'), 'Kop" --- status: actief')
+        self._toggle(True)
+        new = {"decision": "new", "reason": "r", "additions": [], "new_article": {
+            "slug": "../../evil", "title": "T", "definition": "d", "body": "b",
+            "sources": UPDATE["additions"][0]["sources"]}}
+        with mock.patch.object(dr.dm, "_post", return_value=(200, _draft_body(new))):
+            dr.main(["draft", "--jobs-file", str(self.snap)])
+        dr.main(["gate"])
+        v = self.out / "_v.json"
+        v.write_text(json.dumps({"update--art-a": [{"n": "new", "verdict": "ACCEPT"}]}), encoding="utf-8")
+        dr.main(["apply", "--verdicts", str(v)])
+        self.assertFalse((self.vault / "evil.md").exists())
+        self.assertFalse((self.vault.parent / "evil.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
